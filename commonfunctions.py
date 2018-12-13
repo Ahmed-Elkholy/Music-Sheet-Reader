@@ -16,6 +16,7 @@ from skimage.filters import median
 from skimage.feature import canny
 from skimage.measure import label
 from skimage.color import label2rgb
+from  scipy import ndimage
 
 # Edges
 from skimage.filters import sobel_h, sobel, sobel_v,roberts, prewitt
