@@ -186,9 +186,16 @@ def segment_image(img):
 def detect_ellipses(image):
     gray_image = rgb2gray(image)*255
     gray_image = (gray_image.astype(np.uint8)<128) * np.uint8(255)
-    kernel = np.ones((3,3), np.uint8)
+    #kernel = np.ones((3,3), np.uint8)
+    kernel = np.array([
+        [0,0,1,0,0],
+        [0,1,1,1,0],
+        [1,1,1,1,1],
+        [0,1,1,1,0],
+        [0,0,1,0,0]
+    ]).astype(np.uint8)
     gray_image = cv2.erode(gray_image, kernel, iterations=5)
-    gray_image = cv2.dilate(gray_image, kernel, iterations=8)
+    gray_image = cv2.dilate(gray_image, kernel, iterations=5)
     ellipses = gray_image>128
     #gray_image[ellipses] = (255, 0, 0)
     return ellipses
@@ -242,11 +249,8 @@ def remove_lines(img,segnum):
 # Removal of ellipses and thresholding the image
 def remove_ellipses(ellipses,bin_img):
     x_bin = bin_img > 128
-    #print(ellipses.shape, x_bin.shape)
     x_bin[ellipses] = True
     x_bin = x_bin.astype(np.uint8)*255
-    #x_bin = median(x_bin)
-    cv2.imwrite("test2.jpg",x_bin)
     return x_bin
 
 
@@ -257,7 +261,6 @@ def detect_centers(img):
     img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     img_gray[ellipses] = 255
     img_gray[img_gray != 255] = 0
-    cv2.imwrite('ellipses.jpg',img_gray)
     lbl = ndimage.label(img_gray)[0]
     numberOfEllipses = np.max(lbl)
     arr = list(range(1,numberOfEllipses+1))
@@ -270,7 +273,7 @@ def detect_centers(img):
 
 
 def segment_symbols(line):
-    show_images([line])
+    #show_images([line])
     line = line.astype(np.uint8)
     line = np.logical_not(line)
     line = line.astype(np.uint8)
@@ -315,8 +318,8 @@ def draw_histogram(line,boundingrects):
             continue
         if (np.count_nonzero(symbol)==0):
             continue
-        bar(np.arange(symbol.shape[1]), np.sum(symbol,axis=0))
-        show_images([symbol])
+        #bar(np.arange(symbol.shape[1]), np.sum(symbol,axis=0))
+        #show_images([symbol])
 
     
 
@@ -328,31 +331,31 @@ def draw_histogram(line,boundingrects):
 img,x_start,x_end = crop_image('imgs/case4.jpg')
 #show_images([img])
 #img = cv2.imread('imgs/case4.jpg')
-print(x_start,x_end)
+#print(x_start,x_end)
 segments = segment_image(img)
 imgIndex = 1
 segnum = 0
 for segment in segments:
     segment = segment[:,x_start:x_end]
     bin_img = remove_lines(segment,segnum)
-    show_images([bin_img])
+    #show_images([bin_img])
     #df = bin_img.astype(np.uint8)
     #df = np.logical_not(df)
     #df = df.astype(np.uint8)
     ellipses = detect_ellipses(segment)
     centers  = detect_centers(segment)
-    #img_no_ellipses = remove_ellipses(ellipses,bin_img)
-    img_no_ellipses = bin_img
-    cv2.imwrite("sdfs"+str(segnum)+".jpg",img_no_ellipses)
+    img_no_ellipses = remove_ellipses(ellipses,bin_img)
     img_no_ellipses = cv2.medianBlur(img_no_ellipses.astype(np.uint8),5)
     img_no_ellipses = cv2.medianBlur(img_no_ellipses.astype(np.uint8),5)
     img_no_ellipses = cv2.medianBlur(img_no_ellipses.astype(np.uint8),5)
-
+    cv2.imwrite("segment"+str(segnum)+".jpg", segment)
+    cv2.imwrite("ellipses"+str(segnum)+".jpg", ellipses*255)
     img_no_ellipses = img_no_ellipses.astype(np.uint8)
     img_no_ellipses = np.logical_not(img_no_ellipses)
     kernel = np.ones((3,3),np.uint8)
-    img_no_ellipses = img_no_ellipses.astype(np.uint8)  
+    img_no_ellipses = (img_no_ellipses*255).astype(np.uint8)  
     img_no_ellipses = cv2.dilate(img_no_ellipses, kernel, iterations=2)
+    cv2.imwrite("no_ellipses"+str(segnum)+".jpg", img_no_ellipses)
     cv2.imwrite('line'+str(segnum)+'.jpg',img_no_ellipses*255)
     bounding_rect = segment_symbols(img_no_ellipses)
     bounding_rect.sort(key=lambda x: x[0])
