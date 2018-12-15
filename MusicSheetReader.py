@@ -431,6 +431,8 @@ def vertical_segmentation(line):
 
 # In[13]:
 def draw_bounding(line,boundingrects):
+    global countQuarter
+    global countEighth
     for rect in boundingrects:
         xstart, xend = rect
         symbol = line[:,int(xstart):int(xend)]
@@ -438,6 +440,22 @@ def draw_bounding(line,boundingrects):
             continue
         if np.count_nonzero(symbol)==0:
             continue
+        if symbol.shape[1]<14:
+            continue
+        vp = np.sum(symbol,axis=0)
+        max_white = np.max(vp)
+
+        if max_white<20:
+            continue
+        peaks, _ = find_peaks(vp,height=50)
+
+        print(peaks)
+        if len(peaks)>1:
+            print("EIGHTH")
+            countEighth += 1
+        else:
+            countQuarter += 1
+            print("QUARTER OR HALF")
         show_images([symbol])
 
 
@@ -496,8 +514,8 @@ for segment in segments:
     img_no_ellipses = (img_no_ellipses*255).astype(np.uint8)  
     img_no_ellipses = cv2.dilate(img_no_ellipses, kernel, iterations=2)
     cv2.imwrite("no_ellipses"+str(segnum)+".jpg", img_no_ellipses)
-    bounding_rect = segment_symbols(img_no_ellipses)
-    bounding_rect.sort(key=lambda x: x[0])
+    #bounding_rect = segment_symbols(img_no_ellipses)
+    #bounding_rect.sort(key=lambda x: x[0])
     #draw_bounding_rect(img_no_ellipses,bounding_rect)
     pitches = get_pitches()
     #vertical_segmentation(img_no_ellipses/255)
