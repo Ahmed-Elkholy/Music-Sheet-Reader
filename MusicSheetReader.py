@@ -299,7 +299,7 @@ def remove_ellipses(ellipses,bin_img):
 # In[8]:
 
 
-def detect_centers(img):
+def detect_centers(img,ellipses):
     img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     img_gray[ellipses] = 255
     img_gray[img_gray != 255] = 0
@@ -502,7 +502,7 @@ for segment in segments:
     cv2.imwrite("bin_img_after"+str(segnum)+".jpg", bin_img_1*255)
     ellipses = detect_ellipses(bin_img_1)
     cv2.imwrite("ellipses"+str(segnum)+".jpg", ellipses*255)
-    centers  = detect_centers(segment)
+    centers  = detect_centers(segment,ellipses)
     img_no_ellipses = remove_ellipses(ellipses,bin_img_1)*255
     img_no_ellipses = cv2.medianBlur(bin_img_1.astype(np.uint8),5)
     img_no_ellipses = cv2.medianBlur(img_no_ellipses.astype(np.uint8),5)
@@ -540,7 +540,7 @@ for segment in segments:
 # In[12]:
 
 
-def getLinesSpace(img):
+def getLines(img):
     img_gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
     img_bin =  cv2.Canny(img_gray, 50, 150)
     img_horizontal = np.copy(img_bin)
@@ -551,7 +551,7 @@ def getLinesSpace(img):
     img_horizontal = cv2.dilate(img_horizontal, kernel, iterations=16)
     kernel = np.ones((4,2), np.uint8)
     img_horizontal = cv2.erode(img_horizontal, kernel, iterations=1)
-    cv2.imwrite('output/Hor_Lines.jpg',img_horizontal)
+    #cv2.imwrite('output/Hor_Lines.jpg',img_horizontal)
 
     lines = list()
     h,w = img_horizontal.shape
@@ -565,14 +565,40 @@ def getLinesSpace(img):
                 if len(lines)>1 and y - lines[-2] < 15:
                     lines.remove(y)
                 break
-    avgSpace = 0            
-    for x in range(1,len(lines)):
-        avgSpace += (lines[x] - lines[x-1])
+    return lines
+def getLinesSpace(lines):
+    lines = np.asarray(lines)
+	avgSpace = np.average(lines[1:]-lines[:len(lines)-1])
     avgSpace /= 4
     return int(avgSpace)
 
-
-#img = cv2.imread('output/cropped4.jpg')
-#print(getLinesSpace(img))
+def detectPositions(lines,centers):
+    midLine = lines[2]
+    diff = []
+	diff = diff[1:] #ignore cliff
+    centers = centers[centers[:,1].argsort()]
+    diff = midLine - centers[:,0]
+    Map = {
+      range(48,57): "A5",#L0
+      range(40,48): "G5",#L0L1
+      range(32,40): "F5",#L1
+      range(23,32): "E5",#L1L2
+      range(14,23): "D5",#L2
+      range(5,14): "C5",#L2L3
+      range(-4,5): "B4",#L3
+      range(-15,-4) : "A4",#L3L4
+      range(-23,-15) : "G4",#L4
+      range(-32,-23): "F4",#L4L5
+      range(-40,-32): "E4",#L5
+      range(-48,-40): "D4",#L5L6
+      range(-57,-48): "C4",#L6
+    }
+    pos = []
+    for center in diff:
+        for x in Map:
+            if center in x:
+                pos.append(Map[x])
+                continue
+    return pos
 
 
