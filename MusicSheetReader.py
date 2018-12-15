@@ -6,7 +6,7 @@
 
 from commonfunctions import *
 import operator
-
+from scipy.signal import find_peaks
 # In[2]:
 
 
@@ -309,17 +309,26 @@ def draw_bounding_rect(line,bounding_rect):
     
     
 def draw_histogram(line,boundingrects):
+    cv2.imwrite("histo.jpg",line)
     for rect in boundingrects:
         x,y,w,h = rect
-        if (h<70 or w < 30):
+        #70 30
+        if (h<65):
             continue
         symbol = line[int(y):int(y+h),int(x):int(x+w)]
         if (len(symbol)==0):
             continue
         if (np.count_nonzero(symbol)==0):
             continue
-        #bar(np.arange(symbol.shape[1]), np.sum(symbol,axis=0))
-        #show_images([symbol])
+        peaks, _ = find_peaks(np.sum(symbol,axis=0))
+        if len(peaks)>1:
+            print("EIGHTH")
+        else:
+            print("QUARTER OR HALF")
+
+
+        bar(np.arange(symbol.shape[1]), np.sum(symbol,axis=0))
+        show_images([symbol])
 
     
 
@@ -328,7 +337,7 @@ def draw_histogram(line,boundingrects):
 
 
 #### Main ######
-img,x_start,x_end = crop_image('imgs/case4.jpg')
+img,x_start,x_end = crop_image('imgs/10.jpg')
 #show_images([img])
 #img = cv2.imread('imgs/case4.jpg')
 #print(x_start,x_end)
