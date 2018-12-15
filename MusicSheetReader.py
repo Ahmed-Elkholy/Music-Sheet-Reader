@@ -7,7 +7,10 @@
 from commonfunctions import *
 import operator
 from scipy.signal import find_peaks
+
+
 # In[2]:
+
 
 
 def find_page_contours(img):
@@ -184,8 +187,9 @@ def segment_image(img):
 
 
 def detect_ellipses(image):
-    gray_image = rgb2gray(image)*255
-    gray_image = (gray_image.astype(np.uint8)<128) * np.uint8(255)
+    ellipses = np.copy(image).astype(np.uint8)
+    #gray_image = rgb2gray(image)*255
+    #gray_image = (gray_image.astype(np.uint8)<128) * np.uint8(255)
     #kernel = np.ones((3,3), np.uint8)
     kernel = np.array([
         [0,0,1,0,0],
@@ -194,10 +198,11 @@ def detect_ellipses(image):
         [0,1,1,1,0],
         [0,0,1,0,0]
     ]).astype(np.uint8)
-    gray_image = cv2.erode(gray_image, kernel, iterations=5)
-    gray_image = cv2.dilate(gray_image, kernel, iterations=5)
-    ellipses = gray_image>128
+    ellipses = cv2.dilate(ellipses, kernel, iterations=3)
+    ellipses = cv2.erode(ellipses, kernel, iterations=3)
+    #ellipses = gray_image>128
     #gray_image[ellipses] = (255, 0, 0)
+    ellipses = ellipses<0.5
     return ellipses
 
 
@@ -223,12 +228,11 @@ def remove_lines_seg(img):
 
 
 # In[6]:
-
-
-def remove_lines(img,segnum):
+#aboadma's edit
+def remove_lines_s(img,segnum):
     gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     bin_img = cv2.adaptiveThreshold(gray_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 53, 4)
-    #vertical 
+    #vertical
     bin_img = bin_img/255
     delta = 80
     cv2.imwrite('line_re'+str(segnum)+'.jpg',bin_img*255)
@@ -243,14 +247,52 @@ def remove_lines(img,segnum):
     return closed_img
 
 
+
+def remove_lines(img,segnum):
+    kernel = np.ones((5,5),np.uint8)
+    hkernel = np.array([
+        [0,0,0],
+        [1,1,1],
+        [0,0,0]
+    ], dtype=np.uint8)
+    vkernel = np.array([
+        [1,1,1,1,1],
+        [0,1,1,1,0],
+        [0,0,1,0,0],
+        [0,1,1,1,0],
+        [1,1,1,1,1]
+    ], dtype=np.uint8)
+    gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    bin_img = cv2.adaptiveThreshold(gray_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 53, 4)
+    #vertical
+    bin_img = bin_img/255
+
+    #bin_img = cv2.medianBlur(bin_img.astype(np.uint8),5)
+    #bin_img = cv2.erode(bin_img,kernel,iterations = 1)
+    bin_img = cv2.erode(bin_img,hkernel,iterations = 1)
+    
+    delta = 80
+    #cv2.imwrite('line_re'+str(segnum)+'.jpg',bin_img*255)
+    for i in range(0,bin_img.shape[1],delta):
+        bin_img[:,i:i+delta] = remove_lines_seg(bin_img[:,i:i+delta])
+        #show_images([bin_img[:,i:i+delta]])
+    #cv2.imwrite('line_re'+str(segnum)+'.jpg',bin_img*255)
+
+    #closed_img = cv2.dilate(bin_img, kernel,iterations = 1)
+    eroded_img = cv2.erode(bin_img,vkernel,iterations = 1)
+    
+    cv2.imwrite('line_re'+str(segnum)+'.jpg',eroded_img*255)
+    return eroded_img
+
+
 # In[7]:
 
 
 # Removal of ellipses and thresholding the image
 def remove_ellipses(ellipses,bin_img):
-    x_bin = bin_img > 128
+    x_bin = bin_img > 0.5
     x_bin[ellipses] = True
-    x_bin = x_bin.astype(np.uint8)*255
+    x_bin = x_bin.astype(np.uint8)
     return x_bin
 
 
@@ -308,70 +350,117 @@ def draw_bounding_rect(line,bounding_rect):
     
     
     
-def draw_histogram(line,boundingrects):
-    cv2.imwrite("histo.jpg",line)
+def draw_histogram(line,boundingrects,pitches):
+    cv2.imwrite("histo.jpg",line*255)
+    global countQuarter
+    global countEighth
+    print(len(pitches))
+    rectCount = 0
+    index = 0
+    result = []
     for rect in boundingrects:
+        if rectCount==0 or rectCount==1 or rectCount==2 :
+            rectCount += 1
+            continue
         x,y,w,h = rect
         #70 30
-        if (h<65):
+        if (w<14):
             continue
         symbol = line[int(y):int(y+h),int(x):int(x+w)]
         if (len(symbol)==0):
             continue
         if (np.count_nonzero(symbol)==0):
             continue
-        peaks, _ = find_peaks(np.sum(symbol,axis=0))
+        peaks, _ = find_peaks(np.sum(symbol,axis=0),height=50)
+        print(peaks)
         if len(peaks)>1:
             print("EIGHTH")
+            countEighth += 1
+            result.append((pitches[index],"EIGHTH"))
+            index += 1
+            result.append((pitches[index],"EIGHTH"))
+
+
         else:
+            countQuarter += 1
             print("QUARTER OR HALF")
+            result.append((pitches[index],"QUARTER OR HALF"))
+        #bar(np.arange(symbol.shape[1]), np.sum(symbol,axis=0))
+        print(index)
+        #show_images([symbol])
+        index += 1
+    return result
 
 
-        bar(np.arange(symbol.shape[1]), np.sum(symbol,axis=0))
-        show_images([symbol])
 
-    
+# In[13]:
+
+
+# May be used to allow for ellipse color detection later on
+def fill_ellipses(image):
+    data = np.copy(image)
+    # finds and number all disjoint white regions of the image
+    is_white = data > 0.5
+    labels, n = ndimage.measurements.label(is_white)
+
+    # get a set of all the region ids which are on the edge - we should not fill these
+    on_border = set(labels[:,0]) | set(labels[:,-1]) | set(labels[0,:]) | set(labels[-1,:])
+
+    for label in range(1, n+1):  # label 0 is all the black pixels
+        if label not in on_border:
+            # turn every pixel with that label to black
+            data[labels == label] = 0
+    return data
 
 
 # In[ ]:
-
+def get_pitches():
+    #TODO PUT YOUR CODE HERE YOUSSRY
+    #pass all parameters needed
+    #It would be better if you put ellipses centers along the pitch
+    pitches_array = ['A4','A4','F4','A4','F5','F5','E4','F5','B4','B4','G4','F5','E4','E5','F5','A4','D5','C5','F4','A4','A4','A4','A4','A4','F5']
+    return pitches_array
 
 #### Main ######
+countQuarter = 0
+countEighth = 0
 img,x_start,x_end = crop_image('imgs/10.jpg')
-#show_images([img])
-#img = cv2.imread('imgs/case4.jpg')
-#print(x_start,x_end)
 segments = segment_image(img)
 imgIndex = 1
 segnum = 0
 for segment in segments:
     segment = segment[:,x_start:x_end]
-    bin_img = remove_lines(segment,segnum)
-    #show_images([bin_img])
-    #df = bin_img.astype(np.uint8)
-    #df = np.logical_not(df)
-    #df = df.astype(np.uint8)
-    ellipses = detect_ellipses(segment)
-    centers  = detect_centers(segment)
-    img_no_ellipses = remove_ellipses(ellipses,bin_img)
-    img_no_ellipses = cv2.medianBlur(img_no_ellipses.astype(np.uint8),5)
-    img_no_ellipses = cv2.medianBlur(img_no_ellipses.astype(np.uint8),5)
-    img_no_ellipses = cv2.medianBlur(img_no_ellipses.astype(np.uint8),5)
     cv2.imwrite("segment"+str(segnum)+".jpg", segment)
+    bin_img = remove_lines_s(segment,segnum)
+    cv2.imwrite("bin_img_before"+str(segnum)+".jpg", bin_img*255)
+    bin_img_1 = fill_ellipses(bin_img)
+    cv2.imwrite("bin_img_after"+str(segnum)+".jpg", bin_img_1*255)
+    ellipses = detect_ellipses(bin_img_1)
     cv2.imwrite("ellipses"+str(segnum)+".jpg", ellipses*255)
+    centers  = detect_centers(segment)
+    img_no_ellipses = remove_ellipses(ellipses,bin_img_1)*255
+    img_no_ellipses = cv2.medianBlur(bin_img_1.astype(np.uint8),5)
+    img_no_ellipses = cv2.medianBlur(img_no_ellipses.astype(np.uint8),5)
+    img_no_ellipses = cv2.medianBlur(img_no_ellipses.astype(np.uint8),5)
+    #cv2.imwrite("ellipses"+str(segnum)+".jpg", ellipses*255)
     img_no_ellipses = img_no_ellipses.astype(np.uint8)
     img_no_ellipses = np.logical_not(img_no_ellipses)
     kernel = np.ones((3,3),np.uint8)
     img_no_ellipses = (img_no_ellipses*255).astype(np.uint8)  
     img_no_ellipses = cv2.dilate(img_no_ellipses, kernel, iterations=2)
     cv2.imwrite("no_ellipses"+str(segnum)+".jpg", img_no_ellipses)
-    cv2.imwrite('line'+str(segnum)+'.jpg',img_no_ellipses*255)
     bounding_rect = segment_symbols(img_no_ellipses)
     bounding_rect.sort(key=lambda x: x[0])
     #draw_bounding_rect(img_no_ellipses,bounding_rect)
+    pitches = get_pitches()
     if (segnum==0):
-        draw_histogram(img_no_ellipses,bounding_rect)
+        #must be binary
+        result = draw_histogram(img_no_ellipses/255,bounding_rect,pitches)
     segnum += 1
+    print(result)
+    print("Quarter:"+str(countQuarter))
+    print("Eighth:"+str(countEighth))
+
     #break
     #filename = 'ellipses' + str(imgIndex) + '.jpg'
     #cv2.imwrite(filename,segment)
@@ -417,23 +506,4 @@ def getLinesSpace(img):
 #img = cv2.imread('output/cropped4.jpg')
 #print(getLinesSpace(img))
 
-
-# In[13]:
-
-
-# May be used to allow for ellipse color detection later on
-def fill_ellipses(image):
-    data = np.copy(image)
-    # finds and number all disjoint white regions of the image
-    is_white = data > 128
-    labels, n = scipy.ndimage.measurements.label(is_white)
-
-    # get a set of all the region ids which are on the edge - we should not fill these
-    on_border = set(labels[:,0]) | set(labels[:,-1]) | set(labels[0,:]) | set(labels[-1,:])
-
-    for label in range(1, n+1):  # label 0 is all the black pixels
-        if label not in on_border:
-            # turn every pixel with that label to black
-            data[labels == label] = 0
-    return data
 
