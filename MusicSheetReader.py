@@ -391,9 +391,56 @@ def draw_histogram(line,boundingrects,pitches):
         index += 1
     return result
 
+def find_first_zero(vec,index):
+    for i in range(index,len(vec)):
+        if vec[i] == 0:
+            return i
+    return -1
 
+def find_last_zero(vec,index):
+    for i in range(index,len(vec)):
+        while(vec[i] == 0 and i<len(vec)):
+            i += 1
+        return i
+    return -1
+
+def vertical_segmentation(line):
+
+    #print(*np.sum(line,axis=0),sep='\n')
+    vertical_projection = np.sum(line,axis=0)
+    print(len(vertical_projection))
+    index = 0
+    bounding_rect = []
+    while (index<len(vertical_projection)):
+        index1 = find_first_zero(vertical_projection,index)
+        index = find_last_zero(vertical_projection,index1)
+        xstart = index
+        #end
+        index1 = find_first_zero(vertical_projection,index)
+        xend = index1
+        index = index1
+        if xend == -1 or xstart==-1:
+            break
+        bounding_rect.append((xstart,xend))
+    return bounding_rect
+
+
+    #bar(np.arange(line.shape[1]), np.sum(line,axis=0))
+    #show_images([line])
+    return
 
 # In[13]:
+def draw_bounding(line,boundingrects):
+    for rect in boundingrects:
+        xstart, xend = rect
+        symbol = line[:,int(xstart):int(xend)]
+        if len(symbol) == 0:
+            continue
+        if np.count_nonzero(symbol)==0:
+            continue
+        show_images([symbol])
+
+
 
 
 # May be used to allow for ellipse color detection later on
@@ -453,13 +500,17 @@ for segment in segments:
     bounding_rect.sort(key=lambda x: x[0])
     #draw_bounding_rect(img_no_ellipses,bounding_rect)
     pitches = get_pitches()
+    #vertical_segmentation(img_no_ellipses/255)
+
     if (segnum==0):
         #must be binary
-        result = draw_histogram(img_no_ellipses/255,bounding_rect,pitches)
+        br = vertical_segmentation(img_no_ellipses/255)
+        draw_bounding(img_no_ellipses/255,br)
+        #result = draw_histogram(img_no_ellipses/255,bounding_rect,pitches)
     segnum += 1
-    print(result)
+    #print(result)
     print("Quarter:"+str(countQuarter))
-    print("Eighth:"+str(countEighth))
+    #print("Eighth:"+str(countEighth))
 
     #break
     #filename = 'ellipses' + str(imgIndex) + '.jpg'
