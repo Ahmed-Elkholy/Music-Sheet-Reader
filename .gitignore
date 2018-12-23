@@ -14,3 +14,8 @@ __pycache__
 #
 
 # End of https://www.gitignore.io/api/jupyternotebook
+
+*.jpg
+*/*.jpg
+*.wav
+imgs/*

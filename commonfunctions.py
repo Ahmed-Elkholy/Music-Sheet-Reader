@@ -20,6 +20,7 @@ from  scipy import ndimage
 
 # Edges
 from skimage.filters import sobel_h, sobel, sobel_v,roberts, prewitt
+from skimage.filters import threshold_otsu, threshold_niblack, threshold_sauvola
 
 # Hough Transform
 from skimage.transform import hough_circle, hough_circle_peaks, hough_ellipse
