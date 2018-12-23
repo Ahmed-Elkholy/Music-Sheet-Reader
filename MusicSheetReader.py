@@ -20,6 +20,7 @@ from joblib import dump, load
 from classifier import *
 import pysynth
 import os
+import sys
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -543,7 +544,8 @@ segnum = 0
 # Initialize lists
 song = []
 # Load test case and learning module
-img, x_start, x_end = crop_image('imgs/13.JPG')
+#img, x_start, x_end = crop_image('imgs/13.JPG')
+img, x_start, x_end = crop_image(sys.argv[1])
 model = load('model/model.joblib')
 # Divide the sheet into segments (each containing only one line)
 segments = segment_image(img)
